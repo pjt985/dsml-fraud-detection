@@ -7,10 +7,11 @@ import seaborn
 import seaborn as sns
 import imblearn
 from matplotlib import pyplot
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, accuracy_score, balanced_accuracy_score, precision_score, recall_score, \
-    classification_report
+    classification_report, roc_auc_score
 import xgboost as xgb
-from sklearn.preprocessing import RobustScaler, QuantileTransformer
+from sklearn.preprocessing import RobustScaler, QuantileTransformer, OrdinalEncoder
 import lightgbm as lgbm
 import catboost as catb
 
@@ -297,26 +298,43 @@ i.e. if the probabilities < 0.5 it belongs to a certain class, and if not it bel
 For imbalanced class problems, this default threshold may not work properly. 
 We need to change the threshold to the optimum value so that it can efficiently separate two classes.
 '''
-from sklearn.ensemble import RandomForestClassifier
-rf_model = RandomForestClassifier()
-rf_model.fit(X_train,y_train)   
-rf_model.predict_proba(X_test) #probability of the class label
 
-#After getting the probability we can check for the optimum value.
+df['nameDest_startswith_C'] = df['nameDest'].str.startswith('C')
 
-step_factor = 0.05
-threshold_value = 0.2
-roc_score=0
-predicted_proba = rf_model.predict_proba(X_test) #probability of prediction
-while threshold_value <=0.8: #continue to check best threshold upto probability 0.8
-    temp_thresh = threshold_value
-    predicted = (predicted_proba [:,1] >= temp_thresh).astype('int') #change the class boundary for prediction
-    print('Threshold',temp_thresh,'--',roc_auc_score(y_test, predicted))
-    if roc_score<roc_auc_score(y_test, predicted): #store the threshold for best classification
-        roc_score = roc_auc_score(y_test, predicted)
-        thrsh_score = threshold_value
-    threshold_value = threshold_value + step_factor
-print('---Optimum Threshold ---',thrsh_score,'--ROC--',roc_score)
+df[['nameDest_startswith_C']] = OrdinalEncoder(categories=[[False, True]]).fit_transform(df[['nameDest_startswith_C']])
+
+df = pd.get_dummies(df, columns=['type'], drop_first=True)
+df.drop(['nameOrig', 'nameDest'], axis=1, inplace=True)
+
+df.head()
+
+#%%
+
+y = df['isFraud']
+X = df.loc[:, df.columns != 'isFraud']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+rf_model = LogisticRegression()
+rf_model.fit(X_train, y_train)
+predicted_proba = rf_model.predict_proba(X_test)
+
+#%%
+
+step_factor = 0.001
+threshold_value = 0.001
+roc_score = 0
+while threshold_value <= 0.4:  # continue to check best threshold upto probability 0.8
+  temp_thresh = threshold_value
+  predicted = (predicted_proba[:, 1] >= temp_thresh).astype('int')  # change the class boundary for prediction
+  #print('Threshold', temp_thresh, '--', roc_auc_score(y_test, predicted))
+  if roc_score < roc_auc_score(y_test, predicted):  # store the threshold for best classification
+    roc_score = roc_auc_score(y_test, predicted)
+    thrsh_score = threshold_value
+  threshold_value = threshold_value + step_factor
+print('---Optimum Threshold ---', thrsh_score, '--ROC--', roc_score)
+
+preds = [1 if x >= thrsh_score else 0 for x in predicted_proba[:, 1]]
 
 #%%
 # Choose data for the model
@@ -585,3 +603,4 @@ Feature: 2, Score: 39.85208
 Feature: 3, Score: 9.67768
 
 '''
+
