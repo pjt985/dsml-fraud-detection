@@ -298,6 +298,7 @@ i.e. if the probabilities < 0.5 it belongs to a certain class, and if not it bel
 For imbalanced class problems, this default threshold may not work properly. 
 We need to change the threshold to the optimum value so that it can efficiently separate two classes.
 '''
+
 df['nameDest_startswith_C'] = df['nameDest'].str.startswith('C')
 
 df[['nameDest_startswith_C']] = OrdinalEncoder(categories=[[False, True]]).fit_transform(df[['nameDest_startswith_C']])
@@ -602,3 +603,4 @@ Feature: 2, Score: 39.85208
 Feature: 3, Score: 9.67768
 
 '''
+
